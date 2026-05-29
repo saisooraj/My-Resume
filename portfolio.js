@@ -161,6 +161,7 @@
   });
 
   /* ---------- Contact form ---------- */
+  const FORMSPREE = "https://formspree.io/f/xredjnda";
   const form = document.getElementById("contactForm");
   if (form) {
     const validators = {
@@ -168,8 +169,11 @@
       email: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
       message: (v) => v.trim().length >= 5,
     };
-    form.addEventListener("submit", (e) => {
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
+
+      // Validate all fields first
       let ok = true;
       Object.keys(validators).forEach((name) => {
         const input = form.elements[name];
@@ -178,8 +182,39 @@
         field.classList.toggle("invalid", !valid);
         if (!valid) ok = false;
       });
-      if (ok) form.classList.add("sent");
+      if (!ok) return;
+
+      // Disable submit while sending
+      const btn = form.querySelector("button[type=submit]");
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = "Sending&hellip;";
+
+      try {
+        const res = await fetch(FORMSPREE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({
+            name: form.elements["name"].value.trim(),
+            email: form.elements["email"].value.trim(),
+            message: form.elements["message"].value.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.ok !== false) {
+          form.classList.add("sent");
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          alert("Something went wrong. Please try again or email me directly.");
+        }
+      } catch {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        alert("Network error. Please check your connection and try again.");
+      }
     });
+
     form.querySelectorAll("input, textarea").forEach((input) => {
       input.addEventListener("input", () => {
         const field = input.closest(".field");
